@@ -4,7 +4,7 @@ import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Gtk, Adw, Gio
-from rtmidi.midiutil import open_midioutput, open_midiinput
+import rtmidi
 import time
 
 buttons = {
@@ -318,6 +318,16 @@ midiout = None
 midiin = None
 deviceButtonBox = None
 connectButton = None
+disconnectButton = None
+portsList = None
+
+def openPort(midi, portname):
+	for portno, name in enumerate(midi.get_ports()):
+		if portname == name:
+			midi.open_port(portno, portname)
+			return True
+	print("Port {} was not found".format(portname))
+	return False
 
 def connectToDevice(b):
 	global connected, midiout, midiin
@@ -325,20 +335,26 @@ def connectToDevice(b):
 	if connected:
 		connected = False
 		deviceButtonBox.set_sensitive(False)
-		connectButton.set_label("Connect to device")
+		connectButton.set_visible(True)
+		disconnectButton.set_visible(False)
 		midiin.close_port()
 		midiin = None
 		midiout.close_port()
 		midiout = None
 	else:
-		midiout, p1 = open_midioutput(1)
-		midiin, p2 = open_midiinput(1)
-		print("Opened {}/{}".format(p1, p2))
+		portname = portsList.get_selected_row().get_child().get_label()
+		print(portname)
+		if not openPort(midiout, portname) or not openPort(midiin, portname):
+			print("Error opening port {}".format(portname))
+			return
+
+		print("Port {} opened".format(portname))
 		midiin.ignore_types(sysex=False)
 		midiin.set_callback(gotPacket)
 		connected = True
 		deviceButtonBox.set_sensitive(True)
-		connectButton.set_label("Disconnect")
+		connectButton.set_visible(False)
+		disconnectButton.set_visible(True)
 
 def getFromDevice(b):
 	for bi in buttons:
@@ -784,7 +800,7 @@ class Properties:
 	Color = 17
 
 def on_activate(app):
-	global deviceButtonBox, connectButton
+	global deviceButtonBox, connectButton, disconnectButton, portsList
 	win = Gtk.ApplicationWindow(application=app)
 	nb = Gtk.Notebook()
 	btnGrid = Gtk.Grid()
@@ -827,9 +843,25 @@ def on_activate(app):
 	saveToFileBtn.connect('clicked', saveToFile)
 	sideBox.append(saveToFileBtn)
 
-	connectButton = Gtk.Button(label="Connect to device")
-	connectButton.connect('clicked', connectToDevice)
+	connectPopover = Gtk.Popover()
+	popoverBox = Gtk.Box()
+	connectPopover.set_child(popoverBox)
+	connectPopover.set_autohide(True)
+	popoverBox.set_orientation(Gtk.Orientation.VERTICAL)
+	portsList = Gtk.ListBox()
+	for port in midiout.get_ports():
+		portsList.append(Gtk.Label(label=port))
+	popoverBox.append(portsList)
+	realConnectButton = Gtk.Button(label="Connect")
+	realConnectButton.connect('clicked', connectToDevice)
+	popoverBox.append(realConnectButton)
+	connectButton = Gtk.MenuButton(label="Connect to device", popover=connectPopover)
 	sideBox.append(connectButton)
+	disconnectButton = Gtk.Button(label="Disconnect")
+	disconnectButton.connect('clicked', connectToDevice)
+	disconnectButton.set_visible(False)
+	sideBox.append(disconnectButton)
+
 	deviceButtonBox = Gtk.Box()
 	deviceButtonBox.set_orientation(Gtk.Orientation.VERTICAL)
 	deviceButtonBox.set_sensitive(False)
@@ -1125,7 +1157,8 @@ def addSpinButton(widget, label, minVal = 0, maxVal = 127):
 	widget.append(box)
 	return btn
 
-
+midiout = rtmidi.MidiOut(rtmidi.API_UNSPECIFIED)
+midiin = rtmidi.MidiIn(rtmidi.API_UNSPECIFIED)
 app = Adw.Application(application_id='fr.smaiz.miniLab2UI')
 app.connect('activate', on_activate)
 app.run(None)
