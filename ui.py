@@ -320,6 +320,7 @@ deviceButtonBox = None
 connectButton = None
 disconnectButton = None
 portsList = None
+memorySelect = None
 
 def openPort(midi, portname):
 	for portno, name in enumerate(midi.get_ports()):
@@ -356,7 +357,18 @@ def connectToDevice(b):
 		connectButton.set_visible(False)
 		disconnectButton.set_visible(True)
 
-def getFromDevice(b):
+setCurrentMemoryMessage = [ 0xF0, 0x00, 0x20, 0x6B, 0x7F, 0x42, 0x05, 0x00, 0xF7 ]
+
+def setCurrentMemory(write=False):
+	tmp, memory = memorySelect.get_selected_item().get_string().split()
+	print("Setting current memory to {}".format(memory))
+	setCurrentMemoryMessage[6] = 6 if write else 5
+	setCurrentMemoryMessage[7] = int(memory)
+	midiout.send_message(setCurrentMemoryMessage)
+
+def getFromDevice(x):
+	print("getFromDevice")
+	setCurrentMemory()
 	for bi in buttons:
 		b = buttons[bi]
 		for i in range(6):
@@ -389,7 +401,7 @@ def gotPacket(e, data=None):
 def sendMidiSetValue(control, param, value):
 	midiout.send_message(bytearray.fromhex("F0 00 20 6B 7F 42 02 00 {:02X} {:02X} {:02X} F7".format(param, control, value)))
 
-def saveToDevice(b, index):
+def saveToDevice(x):
 	print("saveToDevice")
 	if not sync:
 		# We need to send everything
@@ -401,7 +413,7 @@ def saveToDevice(b, index):
 			if b["type"] == "pad":
 				sendMidiSetValue(b["index"], Properties.Color, b[Properties.Color])
 				time.sleep(0.001)
-	midiout.send_message(bytearray.fromhex("F0 00 20 6B 7F 42 06 {:02X} F7".format(index)))
+	setCurrentMemory(True)
 
 def updateSync(b):
 	global sync
@@ -800,7 +812,7 @@ class Properties:
 	Color = 17
 
 def on_activate(app):
-	global deviceButtonBox, connectButton, disconnectButton, portsList
+	global deviceButtonBox, connectButton, disconnectButton, portsList, memorySelect
 	win = Gtk.ApplicationWindow(application=app)
 	nb = Gtk.Notebook()
 	btnGrid = Gtk.Grid()
@@ -866,16 +878,26 @@ def on_activate(app):
 	deviceButtonBox.set_orientation(Gtk.Orientation.VERTICAL)
 	deviceButtonBox.set_sensitive(False)
 	sideBox.append(deviceButtonBox)
-	getFromDeviceBtn = Gtk.Button(label="Get from device")
-	getFromDeviceBtn.connect('clicked', getFromDevice)
-	deviceButtonBox.append(getFromDeviceBtn)
 	syncDeviceBtn = Gtk.CheckButton(label="Sync with device")
 	syncDeviceBtn.connect('toggled', updateSync)
 	deviceButtonBox.append(syncDeviceBtn)
+	
+	memoryLegend = Gtk.Label(label="Memory")
+	deviceButtonBox.append(memoryLegend)
+	model = Gtk.StringList()
 	for i in range(8):
-		saveToDeviceBtn = Gtk.Button(label="Send to memory {}".format(i + 1))
-		saveToDeviceBtn.connect('clicked', lambda x, index = i + 1: saveToDevice(x, index))
-		deviceButtonBox.append(saveToDeviceBtn)
+		model.append("memory {}".format(i + 1))
+	memorySelect = Gtk.DropDown(model=model)
+	deviceButtonBox.append(memorySelect)
+	readWriteBox = Gtk.Box()
+	getFromDeviceBtn = Gtk.Button(label="Read")
+	getFromDeviceBtn.connect('clicked', getFromDevice)
+	readWriteBox.append(getFromDeviceBtn)
+	saveToDeviceBtn = Gtk.Button(label="Write")
+	saveToDeviceBtn.connect('clicked', saveToDevice)
+	readWriteBox.append(saveToDeviceBtn)
+	deviceButtonBox.append(readWriteBox)
+
 	mainBox.append(sideBox)
 	mainBox.append(box)
 	win.set_child(mainBox)
