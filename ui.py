@@ -528,7 +528,7 @@ class Colors:
 	Green = 4
 	Yellow = 5
 	Blue = 16
-	Magenta = 17
+	Purple = 17
 	Cyan = 20
 	White = 127
 
@@ -544,8 +544,8 @@ def colorValueToString(color):
 			return "Yellow"
 		case Colors.Blue:
 			return "Blue"
-		case Colors.Magenta:
-			return "Magenta"
+		case Colors.Purple:
+			return "Purple"
 		case Colors.Cyan:
 			return "Cyan"
 		case Colors.White:
@@ -566,8 +566,8 @@ def colorStringToValue(color):
 			return Colors.Yellow
 		case "Blue":
 			return Colors.Blue
-		case "Magenta":
-			return Colors.Magenta
+		case "Purple":
+			return Colors.Purple
 		case "Cyan":
 			return Colors.Cyan
 		case "White":
