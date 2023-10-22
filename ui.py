@@ -370,6 +370,9 @@ def gotPacket(e, data=None):
 	value = d[10]
 	buttons[button][prop] = value
 
+def sendMidiSetValue(control, param, value):
+	midiout.send_message(bytearray.fromhex("F0 00 20 6B 7F 42 02 00 {:02X} {:02X} {:02X} F7".format(param, control, value)))
+
 def saveToDevice(b, index):
 	print("saveToDevice")
 	if not sync:
@@ -377,16 +380,16 @@ def saveToDevice(b, index):
 		for bi in buttons:
 			b = buttons[bi]
 			for i in range(6):
-				midiout.send_message(bytearray.fromhex("F0 00 20 6B 7F 42 02 00 {:02X} {:02X} {:02X} F7".format(i + 1, b["index"], b[i + 1])))
+				sendMidiSetValue(b["index"], i + 1, b[i + 1])
 				time.sleep(0.001)
 			if b["type"] == "pad":
-				midiout.send_message(bytearray.fromhex("F0 00 20 6B 7F 42 02 00 11 {:02X} {:02X} F7".format(b["index"], b[Properties.Color])))
+				sendMidiSetValue(b["index"], Properties.Color, b[Properties.Color])
 				time.sleep(0.001)
 	midiout.send_message(bytearray.fromhex("F0 00 20 6B 7F 42 06 {:02X} F7".format(index)))
 
 def updateSync(b):
 	global sync
-	sync = b.get_activate()
+	sync = b.get_active()
 
 def readFromFile(b):
 	dialog = Gtk.FileDialog()
@@ -897,33 +900,53 @@ def btnClicked(k, nb):
 def modeSelected(dropDown, k, page):
 	k[Properties.Mode] = modeStringToValue(dropDown.get_selected_item().get_string())
 	draw(k, page)
+	if sync and connected:
+		sendMidiSetValue(k["index"], Properties.Mode, k[Properties.Mode])
 
 def channelSelected(dropDown, k, page):
 	k[Properties.Channel] = channelStringToValue(dropDown.get_selected_item().get_string())
+	if sync and connected:
+		sendMidiSetValue(k["index"], Properties.Channel, k[Properties.Channel])
 
 def colorSelected(dropDown, k, page):
 	k[Properties.Color] = colorStringToValue(dropDown.get_selected_item().get_string())
+	if sync and connected:
+		sendMidiSetValue(k["index"], Properties.Color, k[Properties.Color])
 
 def optionSelected(dropDown, k, page):
 	k[Properties.Option] = optionStringToValue(dropDown.get_selected_item().get_string(), k[Properties.Mode])
+	if sync and connected:
+		sendMidiSetValue(k["index"], Properties.Option, k[Properties.Option])
 
 def ccNumberSelected(dropDown, k, page):
 	k[Properties.CcNumber] = int(dropDown.get_selected_item().get_string())
+	if sync and connected:
+		sendMidiSetValue(k["index"], Properties.CcNumber, k[Properties.CcNumber])
 
 def minValueChanged(spinButton, k, page):
 	k[Properties.Min] = spinButton.get_value()
+	if sync and connected:
+		sendMidiSetValue(k["index"], Properties.Min, k[Properties.Min])
 
 def maxValueChanged(spinButton, k, page):
 	k[Properties.Max] = spinButton.get_value()
+	if sync and connected:
+		sendMidiSetValue(k["index"], Properties.Max, k[Properties.Mode])
 
 def mmcSelected(dropDown, k, page):
 	k[Properties.CcNumber] = mmcStringToValue(dropDown.get_selected_item().get_string())
+	if sync and connected:
+		sendMidiSetValue(k["index"], Properties.CcNumber, k[Properties.CcNumber])
 
 def noteSelected(dropDown, k, page):
 	k[Properties.CcNumber] = noteStringToValue(dropDown.get_selected_item().get_string())
+	if sync and connected:
+		sendMidiSetValue(k["index"], Properties.CcNumber, k[Properties.CcNumber])
 
 def programChanged(spinButton, k, page):
 	k[Properties.CcNumber] = spinButton.get_value()
+	if sync and connected:
+		sendMidiSetValue(k["index"], Properties.CcNumber, k[Properties.CcNumber])
 
 def draw(k, page):
 	page.remove_all()
